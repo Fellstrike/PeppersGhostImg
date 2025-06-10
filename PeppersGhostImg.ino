@@ -136,13 +136,11 @@ void loop() {
   ElegantOTA.loop();
   handleOSC();
 
-  if (displayTime <= 5) {
     unsigned long t = millis() % 1000;
-    if (t <= 1000) {
-      drawtext(ipBuf, ST77XX_BLACK);
-      displayTime++;
-    }
-  } else if (t <= 1000 && upTime <= 10) {
+  if (displayTime <= 5 && t <= 1000) {
+    drawtext(ipBuf, ST77XX_BLACK);
+    displayTime++;
+  } else if (t <= 1000 && displayTime <= 10) {
     drawRGB565Image(eyeImg, canvas1, IMG_WIDTH, IMG_HEIGHT);
     drawRGB565Image(capstoneTextLogo, canvas2, IMG_WIDTH, IMG_HEIGHT);
     displayTime++;
@@ -277,6 +275,7 @@ void drawToDisplay(GFXcanvas16 &canvas, int csPin) {
 
 // === OSC Input ===
 void handleOSC() {
+  OSCMessage msg;
   int size = Udp.parsePacket();
   if (size > 0) {
     uint8_t buffer[255];
@@ -286,6 +285,7 @@ void handleOSC() {
     if (!msg.hasError()) {
       if (msg.fullMatch("/cabinet")) {
         displayTime = 6;
+      }
     } else {
       OSCErrorCode error = msg.getError();
       Serial.print("OSC Error: ");
