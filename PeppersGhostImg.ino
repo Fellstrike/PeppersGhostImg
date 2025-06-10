@@ -16,15 +16,19 @@ Doesn't seem to work with other pins. Though making two tft objects sort of work
 #include <WiFiUdp.h>
 #include <OSCMessage.h>
 #include <WebServer.h>
+#include <ESPmDNS.h>
 #include <ElegantOTA.h>
 #include "capstoneText.c"
 
 // === WiFi + OTA Setup ===
-const char* ssid = "**********";
-const char* password = "**********";
+const char* ssid = "SonOfPaulSwift";
+const char* password = "thankyou";
 WebServer server(80);
 WiFiUDP Udp;
 const int localPort = 8000; // OSC port
+int displayTime = 0;
+char ipBuf[20];
+
 
 //Define the currently used pins
 #define TFT_CS 19
@@ -65,10 +69,9 @@ const uint16_t elecColors[] = {
   0xFFFF  // white
 };
 
-const int numColors = sizeof(fireColors) / 2;
-
-unsigned long lastFrame = 0;
-float pulsePhase = 0.0;
+//changed to test swap back if it causes issues.
+const int numColors = 5;
+//const int numColors = sizeof(fireColors) / 2;
 
 #define MAX_SPARKS 20
 
@@ -86,15 +89,25 @@ GFXcanvas16 canvas2(SCREEN_WIDTH, SCREEN_HEIGHT);
 void setup() {  
   Serial.begin(115200);
 
-  const char* apSSID = "ESP32-Fireball";
-  const char* apPassword = "openfire";  // optional; use NULL for open network
+  //KEEP ONLY ONE ACTIVE DEPENDING ON IF YOU WANT TO
+  //CONNECT TO A ROUTER OR HOST.
+  WiFi.begin(ssid, password);
+  //WiFi.softAP(apSSID, apPassword);
 
-  WiFi.softAP(apSSID, apPassword);
-  IPAddress myIP = WiFi.softAPIP();
-  Serial.print("Soft AP IP: ");
-  Serial.println(WiFi.softAPIP());
-  Serial.print("AP SSID: ");
-  Serial.println(WiFi.SSID());
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(300);
+    Serial.print(".");
+  }
+  IPAddress myIP = WiFi.localIP();
+  String ipStr = myIP.toString();
+  ipStr.toCharArray(ipBuf, 20);
+  drawtext(ipBuf, ST77XX_BLACK);
+
+  if (!MDNS.begin("cabinet1")) {  // <<<<<<<<<<<< UNIQUE PER DEVICE
+    Serial.println("Error starting mDNS");
+  } else {
+    Serial.println("mDNS responder started as cabinet1.local");
+  }
 
   Udp.begin(localPort);
   server.on("/", []() {
@@ -122,19 +135,39 @@ void loop() {
   server.handleClient();  // Handles OTA updates
   ElegantOTA.loop();
   handleOSC();
-  unsigned long t = millis() % 7000;
 
-  if (t <= 6000) {
-    drawFireballTo(canvas1, fireColors, sizeof(fireColors) / 2, false);
-    drawFireballTo(canvas2, elecColors, sizeof(elecColors) / 2, true); // lightning style
-  } else {
+  if (displayTime <= 5) {
+    unsigned long t = millis() % 1000;
+    if (t <= 1000) {
+      drawtext(ipBuf, ST77XX_BLACK);
+      displayTime++;
+    }
+  } else if (t <= 1000 && upTime <= 10) {
     drawRGB565Image(eyeImg, canvas1, IMG_WIDTH, IMG_HEIGHT);
     drawRGB565Image(capstoneTextLogo, canvas2, IMG_WIDTH, IMG_HEIGHT);
+    displayTime++;
+  } else {
+    drawFireballTo(canvas1, fireColors, sizeof(fireColors) / 2, false); //Fireball
+    drawFireballTo(canvas2, elecColors, sizeof(elecColors) / 2, true); // ball lightning
   }
   drawToDisplay(canvas1, TFT_CS);
   delay(10);
   drawToDisplay(canvas2, TFT_CS2);
   delay(10);
+}
+
+void drawtext(char *text, uint16_t color) {
+  canvas1.fillScreen(ST77XX_WHITE);
+  canvas1.setCursor(0, 0);
+  canvas1.setTextColor(color);
+  canvas1.setTextWrap(true);
+  canvas1.print(text);
+  
+  canvas2.fillScreen(ST77XX_WHITE);
+  canvas2.setCursor(0, 0);
+  canvas2.setTextColor(color);
+  canvas2.setTextWrap(true);
+  canvas2.print(text);
 }
 
 uint16_t getWeightedFireColor(float normDist, int colorCount) {
@@ -230,6 +263,8 @@ void drawRGB565Image(const uint16_t *img, GFXcanvas16 &canvas, int w, int h) {
     }
   }
 }
+
+//Draws The Passed Canvas to the display connected to the csPin
 void drawToDisplay(GFXcanvas16 &canvas, int csPin) {
   digitalWrite(TFT_CS, HIGH);
   digitalWrite(TFT_CS2, HIGH);
@@ -242,18 +277,16 @@ void drawToDisplay(GFXcanvas16 &canvas, int csPin) {
 
 // === OSC Input ===
 void handleOSC() {
-  int size;
-  if ((size = Udp.parsePacket()) > 0) {
+  int size = Udp.parsePacket();
+  if (size > 0) {
     uint8_t buffer[255];
     size = Udp.read(buffer, 255);
-
-    OSCMessage msg;
-    msg.fill(buffer, size); 
+    msg.fill(buffer, size);
 
     if (!msg.hasError()) {
-      //code to switch images here
-      }
-    else {
+      if (msg.fullMatch("/cabinet")) {
+        displayTime = 6;
+    } else {
       OSCErrorCode error = msg.getError();
       Serial.print("OSC Error: ");
       Serial.println(error);
