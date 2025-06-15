@@ -150,7 +150,7 @@ void loop() {
   drawToDisplay(canvas2, TFT_CS2);
   delay(10);
 }
-
+//doesn't currently seem to work correctly
 void drawtext(char *text, uint16_t color) {
   canvas1.fillScreen(ST77XX_WHITE);
   canvas1.setCursor(0, 0);
@@ -175,6 +175,7 @@ uint16_t getWeightedFireColor(float normDist, int colorCount) {
   return index;
 }
 
+//Handle bits off the main body of the sphere
 void updateSparks(GFXcanvas16 &canvas) {
   for (int i = 0; i < MAX_SPARKS; i++) {
     if (sparks[i].life > 0) {
