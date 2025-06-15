@@ -9,9 +9,6 @@ Doesn't seem to work with other pins. Though making two tft objects sort of work
 #include <Adafruit_GFX.h>     // Core graphics library
 #include <Adafruit_ST7735.h>  // Hardware-specific library for ST7735
 #include <SPI.h>              //SPI Library
-#include <Adafruit_GFX.h>
-#include <Adafruit_ST7735.h>
-#include <SPI.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
 #include <OSCMessage.h>
@@ -25,7 +22,7 @@ const char* ssid = "SonOfPaulSwift";
 const char* password = "thankyou";
 WebServer server(80);
 WiFiUDP Udp;
-const int localPort = 8000; // OSC port
+const int localPort = 4202; // OSC port
 int displayTime = 0;
 char ipBuf[20];
 
@@ -70,8 +67,8 @@ const uint16_t elecColors[] = {
 };
 
 //changed to test swap back if it causes issues.
-const int numColors = 5;
-//const int numColors = sizeof(fireColors) / 2;
+//const int numColors = 5;
+const int numColors = sizeof(fireColors) - 1;
 
 #define MAX_SPARKS 20
 
@@ -111,7 +108,7 @@ void setup() {
 
   Udp.begin(localPort);
   server.on("/", []() {
-    server.send(200, "text/html", "<h1>ESP32 Eye Online</h1><a href=\"/update\">Update Firmware</a>");
+    server.send(200, "text/html", "<h1>ESP32 Ghost Balls Online</h1><a href=\"/update\">Update Firmware</a>");
   });
   ElegantOTA.begin(&server);  // OTA Updating
   server.begin();
@@ -137,7 +134,7 @@ void loop() {
   handleOSC();
 
     unsigned long t = millis() % 1000;
-  if (displayTime <= 5 && t <= 1000) {
+  if (displayTime <= 1 && t <= 1000) {
     drawtext(ipBuf, ST77XX_BLACK);
     displayTime++;
   } else if (t <= 1000 && displayTime <= 10) {
